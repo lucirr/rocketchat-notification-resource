@@ -1,0 +1,1 @@
+# rocketchat-notification-resource
