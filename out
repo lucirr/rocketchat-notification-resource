@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -e
+
+cd "${1}"
+
+set +x
+# for jq
+PATH=/usr/local/bin:$PATH
+
+payload=$(mktemp /tmp/resource-in.XXXXXX)
+
+cat > "${payload}" <&0
+
+chat_url="$(jq -r '.source.url' < "${payload}")"
+user="$(jq -r '.source.user' < "${payload}")"
+password="$(jq -r '.source.password' < "${payload}")"
+channel="$(jq -r '.params.channel' < "${payload}")"
+message="$(jq -r '.params.message' < "${payload}")"
+
+
+curl -X POST -k ${chat_url}/api/v1/login -d "user=${user}&password=${password}" > rocket.chat.auth
+export chat_userId=$(cat rocket.chat.auth | jq -r '.data.userId')
+export chat_authToken=$(cat rocket.chat.auth | jq -r '.data.authToken')
+echo ${chat_userId}
+echo ${chat_authToken}
+echo ${channel}
+
+body="$(cat <<EOF
+{
+  "channel": "${channel}",
+  "text": "${message}"
+}
+EOF
+  )"
+send_data="$(echo "${body}" | jq -c '.')"
+
+curl -v -H "X-Auth-Token: ${chat_authToken}" -H "X-User-Id: ${chat_userId}" -H "Content-type:application/json" -k ${chat_url}/api/v1/chat.postMessage -d ${send_data}
+
